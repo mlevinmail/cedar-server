@@ -1,0 +1,11 @@
+exclude = [".venv", "data", "__pycache__"]
+line-length = 110
+
+[lint]
+# E4 imports, E7 statements, E9 syntax errors, F pyflakes
+select = ["E4", "E7", "E9", "F"]
+ignore = [
+  "E702", # multiple statements on one line — pdflayout.py uses these deliberately
+  "E731", # lambda assignment
+  "E741", # ambiguous variable name (l)
+]

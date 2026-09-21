@@ -1,0 +1,7 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+httpx>=0.27
+curl_cffi>=0.7
+pymupdf>=1.24
+python-multipart>=0.0.9
+trafilatura>=1.12

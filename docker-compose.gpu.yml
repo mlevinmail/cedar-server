@@ -1,0 +1,14 @@
+# Override: run Kokoro on an NVIDIA GPU instead of CPU.
+# Requires an NVIDIA GPU + the NVIDIA Container Toolkit on the host.
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+
+services:
+  kokoro:
+    image: ghcr.io/remsky/kokoro-fastapi-gpu:v0.6.0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

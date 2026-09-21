@@ -1,0 +1,76 @@
+# cedar-server: the API + the Kokoro voice engine.
+#
+# Default = CPU Kokoro — runs on a Mac (Docker Desktop) or any Linux box, no GPU.
+# For an NVIDIA GPU, add the override:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+#
+# First time:
+#   docker compose up -d
+#   docker compose logs cedar        # shows the generated owner key
+# Then, in the Cedar app: Use your own server → http://<this-machine>:8000 + the key.
+#
+# Exposing it beyond your LAN? Read "Security" in the README first.
+
+services:
+  kokoro:
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:v0.6.0
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    # No published port: only the cedar service talks to it, over the private network.
+
+  cedar:
+    build: .
+    image: cedar-server:latest
+    restart: unless-stopped
+    depends_on:
+      - kokoro
+    environment:
+      CEDAR_DATA: /data
+      CEDAR_KOKORO_URL: http://kokoro:8880
+      # Optional. Leave unset and a key is generated on first start (see logs).
+      CEDAR_KEY: ${CEDAR_KEY:-}
+      CEDAR_SERVER_NAME: ${CEDAR_SERVER_NAME:-My Cedar server}
+      CEDAR_MAX_UPLOAD_MB: ${CEDAR_MAX_UPLOAD_MB:-100}
+      CEDAR_MAX_FETCH_MB: ${CEDAR_MAX_FETCH_MB:-60}
+      CEDAR_MAX_BODY_MB: ${CEDAR_MAX_BODY_MB:-8}
+      # Reverse proxies whose X-Forwarded-For the server may believe, so the
+      # wrong-key throttle sees real client addresses (README: "Security").
+      FORWARDED_ALLOW_IPS: ${CEDAR_TRUSTED_PROXIES:-127.0.0.1}
+    volumes:
+      - cedar-data:/data
+    ports:
+      # CEDAR_BIND=127.0.0.1 keeps the plain-HTTP port off the network when a
+      # reverse proxy on this machine fronts it. Docker publishes ports around
+      # the host firewall, so this is the switch that actually closes it.
+      - "${CEDAR_BIND:-0.0.0.0}:${CEDAR_PORT:-8000}:8000"
+    # The process runs as an unprivileged user (entrypoint.sh) with no way back
+    # up: no setuid escalation, and only the capabilities the entrypoint needs
+    # to hand the data directory over and drop itself.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - SETPCAP
+
+  # Optional, and never started by `up`: one command that fills the book store
+  # with public-domain classics, then exits. README: "the book store".
+  #   docker compose run --rm classics
+  classics:
+    profiles: ["classics"]
+    build: ./tools/gutenberg
+    image: cedar-classics:latest
+    user: "1000:1000"   # the cedar user, so the server can read what lands
+    volumes:
+      - cedar-data:/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  cedar-data:

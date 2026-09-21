@@ -1,0 +1,28 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check cedar tools tests
+      - run: pytest -q
+      - run: python tools/lang_selftest.py
+      - run: python tools/align_selftest.py
+      # Advisory: a fresh CVE in a dependency must be seen, not block a docs commit.
+      - run: pip install pip-audit && pip-audit -r requirements.txt
+        continue-on-error: true
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t cedar-server:ci .
